@@ -17,11 +17,24 @@ public:
 
 class Router {
 public:
+	int nodeNum;
+	string TCPIP;
+	int TCPPort;
+	int UDPPort;
 	string filename;
 	ofstream file;
 	vector<Link> neighbors;
-	Router(vector<Link> neighbors, int id);
-	int test();
+	Router(int id);
+	int run(int port);
+	void setIP(string ip);
+	void setPort(int port);
+	int createTCPSocket(string destIp, string destPort);
+	void sendTCP(int fd, string message);
+	string receiveTCP(int fd);
+	vector<Link> messageToLinks(string message);
+	int createUDPSocket(int port);
+	void sendUDP(int fd, string destIp, string message);
+
 };
 
 class SrcDest {
