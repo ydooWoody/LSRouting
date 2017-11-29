@@ -18,11 +18,13 @@
 
 using namespace std;
 
+
 Router::Router(int id) {
 	filename = "Router" + to_string(id) + ".log";
 	file.open(filename);
 }
 int Router::run(int port) {
+	
 	file << "Router starting up!" << endl;
 	UDPPort = port;
 	createUDPSocket(UDPPort);
@@ -87,7 +89,6 @@ string Router::receiveTCP(int fd) {
 	char buffer[9999];
 	memset(&buffer, 0, sizeof(buffer));
 	//receive file size
-	file << "READY! Waiting for message.\n" << endl;
 	while (strlen(buffer) == 0) {
 		recv(fd, (char*) &buffer, sizeof(buffer), 0);
 	}
@@ -99,7 +100,6 @@ string Router::receiveTCP(int fd) {
 
 //Create a manager side socket for connecting to routers.
 int Router::createTCPSocket(string destIp, string destPort) {
-	cout << destIp << endl;
 	file << "\n-----TCP STARTUP-----" << endl;
 	file << "Trying to create TCP Socket" << endl;
 
@@ -155,15 +155,15 @@ int Router::createTCPSocket(string destIp, string destPort) {
 			file << "Received start" << endl;
 			//... THIS IS WHERE A CALL TO START LS ROUTING BEGINS
 			linkRequest();
-			file << "Finished linking to neighbors." << endl;
 			sendBack(fd, sin, "DONE");
-			file << "\nAwaiting PACKET signal...\n" << endl;
+			file << "Finished linking to neighbors." << endl;
+			file << "\nAwaiting BROADCAST signal...\n" << endl;
 		} else if (message.at(0) == '#') {
 			struct sockaddr_in sin;
-			file << "Received a packet." << endl;
+			file << "Received broadcast." << endl;
 			//...THIS SHOULD BE A CALL TO SEND TO ANOTHER ROUTER OVER UDP OR THE MANAGER OVER TCP
 			file << "Sending it off to another router or sending a received to manager." << endl;
-			sendBack(fd, sin, "RECV");
+			sendBack(fd, sin, "READY");
 		} else if(message.at(0) == '!'){
 			exit(1);
 		} else {
@@ -174,16 +174,20 @@ int Router::createTCPSocket(string destIp, string destPort) {
 }
 
 void Router::linkRequest(){
-	
-	for(size_t i = 0; i < neighbors.size(); i++){
+	links = neighbors.size();
+	for(size_t i = 0; i < neighbors.size()-1; i++){
 		if(neighbors[i].src == nodeNum){
 			int linkport = neighbors[i].dest + 6000;
-			cout << linkport << " " << nodeNum << endl;
-			sendUDP(UDPfd, TCPIP, "LINK");
+			file << "Sending Link to:" << linkport << endl;
+			string s = to_string(nodeNum);
+			string linkmsg = "%" + s;
+			sendUDP(linkport, TCPIP, linkmsg);
 		}else{
 			int linkport = neighbors[i].src + 6000;
-			cout << linkport << " " << nodeNum << endl;
-			sendUDP(UDPfd, TCPIP, "LINK");
+			file << "Sending Link to:" << linkport << endl;
+			string s = to_string(nodeNum);
+			string linkmsg = "%" + s;
+			sendUDP(linkport, TCPIP, linkmsg);
 		}
 	}
 }
@@ -214,7 +218,7 @@ int Router::createUDPSocket(int port) {
 }
 
 //Send to a UDP connection over a fd
-void Router::sendUDP(int fd, string destIp, string message) {
+void Router::sendUDP(int port, string destIp, string message) {
 	struct sockaddr_in servaddr;
 	char msg[9999];
 
@@ -225,13 +229,13 @@ void Router::sendUDP(int fd, string destIp, string message) {
 	//Set up servaddr
 	memset((char*) &servaddr, 0, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
-	servaddr.sin_port = htons(UDPPort);
+	servaddr.sin_port = htons(port);
 
 	//Copy the destIP to the servaddr stuct
 	inet_pton(AF_INET, destIp.c_str(), &(servaddr.sin_addr));
 
 	//Send a message
-	if (sendto(fd, msg, strlen(msg), 0, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0) {
+	if (sendto(UDPfd, msg, strlen(msg), 0, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0) {
 		char const *p = "ERROR sending message";
 		error(p);
 	}
@@ -281,23 +285,11 @@ void Router::receiveUDP(int fd, int port) {
 			buf[recvlen] = 0;
 			//Prints the message for now, we'll want a function call here.
 			str = buf;
-			cout << "Message: " << str << endl;
 		}
-		if (str == "ACK") {
-			//Send a message back (this timing is way off, but was good for inital testing)
-			sleep(10);
-			cout << "Trying to send a message!" << endl;
+		if (str.at(0) == '%') {
 			//This is where the router will send information to others. Will need to call some function to construct a msg
-			sendBack(receivedFromFD, receivedFromAddr, "Hello back!");
-			cout << "Sent a message back!" << endl;
-		} else {
-			cout << "HERE" << endl;
-			//ACK that you received a message
-			sleep(10);
-			cout << "Trying to send an ACK!" << endl;
-			sendBack(receivedFromFD, receivedFromAddr, "ACK");
-			cout << "Sent an ACK for the message!" << endl;
+			//sendBack(receivedFromFD, receivedFromAddr, "Link Success!");
+			file << "Linked with " << str.substr(1, str.length()-1)<< endl;
 		}
 	}
-	cout << "Ummm what?!" << endl;
 }

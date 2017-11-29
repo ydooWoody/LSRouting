@@ -186,12 +186,12 @@ int createTCPSocket(string port) {
 	char hostname[128];
 	struct hostent *he;
 	struct in_addr **addr_list;
-	gethostname(hostname, sizeof hostname);
-	he = gethostbyname(hostname);
-	addr_list = (struct in_addr **) he->h_addr_list;
-
-	//Print out important info
-	thisIP = inet_ntoa(*addr_list[0]);
+		gethostname(hostname, sizeof hostname);
+		he = gethostbyname(hostname);
+		addr_list = (struct in_addr **) he->h_addr_list;
+	
+		//Print out important info
+		thisIP = inet_ntoa(*addr_list[0]);
 	file << "Listening on: <" << thisIP << ", " << port << ">" << "\n\n";
 	return sockfd;
 //	//Accept a connection to the TCP socket
@@ -337,11 +337,11 @@ void runManager(int num_threads) {
 	}
 	file << "-----LINK ESTABLISHMENT COMPLETED-----\n";
 	while (!packetsSent) {
-		file << "Sending Packets to Routers" << endl;
+		file << "Sending Broadcast Messages" << endl;
 		for (size_t i = 0; i < ac_vector.size(); i++) {
 			sleep(1);
-			sendTCP(ac_vector[i], "#PacketMessage");
-			if (receiveTCP(ac_vector[i]) == "RECV") {
+			sendTCP(ac_vector[i], "#BROADCAST");
+			if (receiveTCP(ac_vector[i]) == "READY") {
 				waitingOnPack--;
 				if (waitingOnPack == 0) {
 					sendTCP(ac_vector[i], "!QUIT");
@@ -351,7 +351,7 @@ void runManager(int num_threads) {
 			}
 		}
 	}
-	file << "-----PACKET SENDING COMPLETED-----\n";
+	file << "----BROADCAST SENDING COMPLETED-----\n";
 	exit(1);
 }
 

@@ -22,6 +22,7 @@ public:
 	int TCPPort;
 	int UDPPort;
 	int UDPfd;
+	int links;
 	string filename;
 	ofstream file;
 	vector<Link> neighbors;
