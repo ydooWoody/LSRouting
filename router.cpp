@@ -156,20 +156,27 @@ int Router::createTCPSocket(string destIp, string destPort) {
 			//... THIS IS WHERE A CALL TO START LS ROUTING BEGINS
 			linkRequest();
 			sendBack(fd, sin, "DONE");
-			file << "Finished linking to neighbors." << endl;
-			file << "\n-----Awaiting BROADCAST signal-----\n" << endl;
-		} else if (message.at(0) == '#') {
-			struct sockaddr_in sin;
 			routers.push_back(nodeNum);
 			for(size_t i = 0; i < neighbors.size(); i++){
 				forwardTable.push_back(neighbors[i]);
 			}
+			file << "Finished linking to neighbors." << endl;
+			file << "\n-----Awaiting BROADCAST signal-----\n" << endl;
+		} else if (message.at(0) == '#') {
+			struct sockaddr_in sin;
+			
 			file << "Received broadcast." << endl;
 			//...THIS SHOULD BE A CALL TO SEND TO ANOTHER ROUTER OVER UDP OR THE MANAGER OVER TCP
 			broadcast();
-			file << "Sending it off to another router or sending a received to manager." << endl;
+			file << "Checking Forward Table." << endl;
+			
 			sendBack(fd, sin, "READY");
 		} else if(message.at(0) == '!'){
+			for(size_t i = 0; i < forwardTable.size(); i++){
+				file << "src: " << forwardTable[i].src << "  dest: " << forwardTable[i].dest << "  cost: " << forwardTable[i].cost << endl;
+			}
+			sleep(5);
+		} else if(message.at(0) == '^'){
 			exit(1);
 		} else {
 			close(fd);
@@ -188,7 +195,7 @@ void Router::linkRequest(){
 		}else{
 			linkport = neighbors[i].src + 6000;	
 		}
-		file << "Sending Link to:" << neighbors[i].dest << endl;
+		file << "Sending Link to:" << (linkport-6000) << endl;
 		string s = to_string(nodeNum);
 		string linkmsg = "%" + s;
 		int fd;
@@ -221,11 +228,13 @@ void Router::linkRequest(){
 		string str;
 		buf[recvlen] = 0;
 		str = buf;
-		file << "Linked with: " << neighbors[i].dest << endl;
+		file << "Linked with: " << (linkport-6000) << endl;
 		close(fd);
 	}
 }
 
+int receivedFromFD3;
+struct sockaddr_in receivedFromAddr3;
 void Router::broadcast() {
 	for(size_t i = 0; i < neighbors.size(); i++){
 			int linkport;
@@ -234,7 +243,7 @@ void Router::broadcast() {
 			}else{
 				linkport = neighbors[i].src + 6000;	
 			}
-			file << "Sending Broadcast to:" << neighbors[i].dest << endl;
+			file << "Sending Broadcast to:" << (linkport-6000) << endl;
 			string s = to_string(nodeNum);
 			string linkmsg = "+" + s + "!" + s + "?";
 			for (size_t j = 0; j < neighbors.size(); j++){
@@ -269,12 +278,12 @@ void Router::broadcast() {
 				//receive file size
 			recvlen = recvfrom(fd, buf, 9999, 0, (struct sockaddr *) &remaddr, &addrlen);
 					//These are storing the information for sending back to the "client"
-			receivedFromAddr2 = remaddr;
-			receivedFromFD2 = fd;
+			receivedFromAddr3 = remaddr;
+			receivedFromFD3 = fd;
 			string str;
 			buf[recvlen] = 0;
 			str = buf;
-			file << "Ack broadcast from: " << neighbors[i].dest << endl;
+			file << "Ack broadcast from: " << (linkport-6000) << endl;
 			close(fd);
 		}
 	
@@ -328,21 +337,24 @@ void Router::reBroadcast(string str){
 			}
 			temp.push_back(Link(atoi(vals[0].c_str()), atoi(vals[1].c_str()), atoi(vals[2].c_str())));
 		}
+		bool found=false;
 		for(size_t j = 0; j < temp.size(); j++){
 			for(size_t h = 0; h < forwardTable.size(); h++){
-				if((forwardTable[h].src == temp[j].src) && (forwardTable[h].dest == temp[j].dest)){
-					;
-				} else {
-					forwardTable.push_back(temp[j]);
+				if((forwardTable[h].src == temp[j].src) && (forwardTable[h].dest == temp[j].dest) && (forwardTable[h].cost == temp[j].cost)){
+					found = true;
 				}
 			}
+			if (!found){
+			forwardTable.push_back(temp[j]);
+			}
 		}
-		cout << nodeNum << " " << resend << endl;
 		reBroadcast2(sender, resend);
 	}
 	
 }
 
+int receivedFromFD4;
+struct sockaddr_in receivedFromAddr4;
 void Router::reBroadcast2(int sender, string msg) {
 	for(size_t i = 0; i < neighbors.size(); i++){
 		if((neighbors[i].src != sender) || (neighbors[i].dest != sender)){
@@ -377,12 +389,12 @@ void Router::reBroadcast2(int sender, string msg) {
 				//receive file size
 			recvlen = recvfrom(fd, buf, 9999, 0, (struct sockaddr *) &remaddr, &addrlen);
 					//These are storing the information for sending back to the "client"
-			receivedFromAddr2 = remaddr;
-			receivedFromFD2 = fd;
+			receivedFromAddr4 = remaddr;
+			receivedFromFD4 = fd;
 			string str;
 			buf[recvlen] = 0;
 			str = buf;
-			file << "Ack broadcast from: " << neighbors[i].dest << endl;
+			file << "2: Ack broadcast from: " << (linkport-6000) << endl;
 			close(fd);
 		}
 	}
@@ -495,7 +507,8 @@ void Router::receiveUDP(int fd, int port) {
 		if (str.at(0) == '+') {
 			//This is where the router will send information to others. Will need to call some function to construct a msg
 			sendBack(receivedFromFD, receivedFromAddr, "AWKBROADCAST");
-			reBroadcast(str);
+			thread up (&Router::reBroadcast,this, str);
+			up.detach();
 		}
 	}
 }

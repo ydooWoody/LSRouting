@@ -278,7 +278,7 @@ void buildRouter(int tid) {
 
 //THis is for running manager based tasks (ie. Sending and receiving packets)
 void runManager(int num_threads) {
-	bool linksSent = false, tablesDone = false, packetsSent = false;
+	bool linksSent = false, tablesDone = false, packetsSent = false, quitting = false;
 	int waitingOn = num_threads, waitingOnFWD = num_threads, waitingOnBroad = num_threads;
 	cout << "Creating Routers..." << endl;
 
@@ -339,7 +339,7 @@ void runManager(int num_threads) {
 		}
 	}
 	file << "-----LINK ESTABLISHMENT COMPLETED-----\n";
-	cout << "Broadcating LSPs..." << endl;
+	cout << "Broadcasting LSPs..." << endl;
 	while (!packetsSent) {
 		file << "Sending Broadcast Messages" << endl;
 		for (size_t i = 0; i < ac_vector.size(); i++) {
@@ -348,12 +348,22 @@ void runManager(int num_threads) {
 			if (receiveTCP(ac_vector[i]) == "READY") {
 				waitingOnBroad--;
 				if (waitingOnBroad == 0) {
+					sleep(10);
 					sendTCP(ac_vector[i], "!QUIT");
 					packetsSent = true;
 					break;
 				}
 			}
 		}
+	}
+	while (!quitting) {
+			file << "Sending Broadcast Messages" << endl;
+			for (size_t i = 0; i < ac_vector.size(); i++) {
+				sleep(1);
+				sendTCP(ac_vector[i], "^quit");
+						quitting = true;
+						break;
+					}
 	}
 	file << "----BROADCAST SENDING COMPLETED-----\n";
 	exit(1);
