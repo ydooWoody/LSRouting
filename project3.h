@@ -28,6 +28,7 @@ public:
 	ofstream file;
 	vector<Link> neighbors;
 	vector<Link> forwardTable;
+	vector<int> routers;
 	Router(int id);
 	int run(int port);
 	void setIP(string ip);
@@ -40,6 +41,8 @@ public:
 	void sendUDP(int fd, int port, string destIp, string message);
 	void receiveUDP(int fd, int port);
 	void linkRequest();
+	void broadcast();
+	void reBroadcast();
 
 };
 

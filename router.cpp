@@ -149,7 +149,7 @@ int Router::createTCPSocket(string destIp, string destPort) {
 			file << "Sending ACK back to manager." << endl;
 			sendBack(fd, sin, "Ready!");
 			file << "ACK sent to manager." << endl;
-			file << "\nAwaiting START signal...\n" << endl;
+			file << "\n-----Awaiting START signal-----\n" << endl;
 		} else if (message.at(0) == '$') {
 			struct sockaddr_in sin;
 			file << "Received start" << endl;
@@ -157,11 +157,13 @@ int Router::createTCPSocket(string destIp, string destPort) {
 			linkRequest();
 			sendBack(fd, sin, "DONE");
 			file << "Finished linking to neighbors." << endl;
-			file << "\nAwaiting BROADCAST signal...\n" << endl;
+			file << "\n-----Awaiting BROADCAST signal-----\n" << endl;
 		} else if (message.at(0) == '#') {
 			struct sockaddr_in sin;
+			routers.push_back(nodeNum);
 			file << "Received broadcast." << endl;
 			//...THIS SHOULD BE A CALL TO SEND TO ANOTHER ROUTER OVER UDP OR THE MANAGER OVER TCP
+			broadcast();
 			file << "Sending it off to another router or sending a received to manager." << endl;
 			sendBack(fd, sin, "READY");
 		} else if(message.at(0) == '!'){
@@ -176,8 +178,7 @@ int Router::createTCPSocket(string destIp, string destPort) {
 int receivedFromFD2;
 struct sockaddr_in receivedFromAddr2;
 void Router::linkRequest(){
-	links = neighbors.size();
-	for(size_t i = 0; i < neighbors.size()-1; i++){
+	for(size_t i = 0; i < neighbors.size(); i++){
 		int linkport;
 		if(neighbors[i].src == nodeNum){
 			linkport = neighbors[i].dest + 6000;
@@ -222,6 +223,66 @@ void Router::linkRequest(){
 	}
 }
 
+void Router::broadcast() {
+	for(size_t i = 0; i < neighbors.size(); i++){
+			int linkport;
+			if(neighbors[i].src == nodeNum){
+				linkport = neighbors[i].dest + 6000;
+			}else{
+				linkport = neighbors[i].src + 6000;	
+			}
+			file << "Sending Broadcast to:" << neighbors[i].dest << endl;
+			string s = to_string(nodeNum);
+			string linkmsg = "+" + s + "?";
+			for (size_t j = 0; j < neighbors.size(); j++){
+				string src = to_string(neighbors[i].src);
+				string dest = to_string(neighbors[i].dest);
+				string cost = to_string(neighbors[i].cost);
+				linkmsg += src + "," + dest + "," + cost + ":";
+			}
+			linkmsg = linkmsg.substr(0, linkmsg.length()-1);
+			int fd;
+			int fds = 8000 + nodeNum;
+			if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+					char const *p = "ERROR creating socket";
+					error(p);
+				}
+			struct sockaddr_in myaddr;
+			memset((char *) &myaddr, 0, sizeof(myaddr));
+					myaddr.sin_family = AF_INET;
+					myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+					myaddr.sin_port = htons(fds);
+
+					if (bind(fd, (struct sockaddr *) &myaddr, sizeof(myaddr)) < 0) {
+						char const *p = "ERROR binding socket";
+						error(p);
+					}
+			sendUDP(fd, linkport, TCPIP, linkmsg);
+			int recvlen;
+			struct sockaddr_in remaddr;
+			socklen_t addrlen = sizeof(remaddr);
+			char buf[9999];
+			memset(&buf, 0, sizeof(buf));
+				//receive file size
+			recvlen = recvfrom(fd, buf, 9999, 0, (struct sockaddr *) &remaddr, &addrlen);
+					//These are storing the information for sending back to the "client"
+			receivedFromAddr2 = remaddr;
+			receivedFromFD2 = fd;
+			string str;
+			buf[recvlen] = 0;
+			str = buf;
+			file << "Awk broadcast from: " << neighbors[i].dest << endl;
+			close(fd);
+		}
+	
+	
+}
+
+void Router::reBroadcast(string str){
+	
+	
+	
+}
 /**
  * These methods are for UDP connections.
  * There is one method for creating the socket for sending/receiving
@@ -323,6 +384,11 @@ void Router::receiveUDP(int fd, int port) {
 		if (str.at(0) == '%') {
 			//This is where the router will send information to others. Will need to call some function to construct a msg
 			sendBack(receivedFromFD, receivedFromAddr, "AWKLINK");
+		}
+		if (str.at(0) == '+') {
+			//This is where the router will send information to others. Will need to call some function to construct a msg
+			sendBack(receivedFromFD, receivedFromAddr, "AWKBROADCAST");
+			reBroadcast(str);
 		}
 	}
 }

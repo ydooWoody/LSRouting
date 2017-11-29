@@ -279,7 +279,7 @@ void buildRouter(int tid) {
 //THis is for running manager based tasks (ie. Sending and receiving packets)
 void runManager(int num_threads) {
 	bool linksSent = false, tablesDone = false, packetsSent = false;
-	int waitingOn = num_threads, waitingOnFWD = num_threads, waitingOnPack = packets.size();
+	int waitingOn = num_threads, waitingOnFWD = num_threads, waitingOnBroad = num_threads;
 
 	for (int i = 0; i < num_threads; i++) {
 		file << "\n-----ROUTER " << i << " SOCKET CREATION-----\n";
@@ -342,8 +342,8 @@ void runManager(int num_threads) {
 			sleep(1);
 			sendTCP(ac_vector[i], "#BROADCAST");
 			if (receiveTCP(ac_vector[i]) == "READY") {
-				waitingOnPack--;
-				if (waitingOnPack == 0) {
+				waitingOnBroad--;
+				if (waitingOnBroad == 0) {
 					sendTCP(ac_vector[i], "!QUIT");
 					packetsSent = true;
 					break;
