@@ -42,7 +42,7 @@ public:
 	void receiveUDP(int fd, int port);
 	void linkRequest();
 	void broadcast();
-	void reBroadcast();
+	void reBroadcast(string str);
 
 };
 
