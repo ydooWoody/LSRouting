@@ -173,22 +173,52 @@ int Router::createTCPSocket(string destIp, string destPort) {
 	return fd;
 }
 
+int receivedFromFD2;
+struct sockaddr_in receivedFromAddr2;
 void Router::linkRequest(){
 	links = neighbors.size();
 	for(size_t i = 0; i < neighbors.size()-1; i++){
+		int linkport;
 		if(neighbors[i].src == nodeNum){
-			int linkport = neighbors[i].dest + 6000;
-			file << "Sending Link to:" << linkport << endl;
-			string s = to_string(nodeNum);
-			string linkmsg = "%" + s;
-			sendUDP(linkport, TCPIP, linkmsg);
+			linkport = neighbors[i].dest + 6000;
 		}else{
-			int linkport = neighbors[i].src + 6000;
-			file << "Sending Link to:" << linkport << endl;
-			string s = to_string(nodeNum);
-			string linkmsg = "%" + s;
-			sendUDP(linkport, TCPIP, linkmsg);
+			linkport = neighbors[i].src + 6000;	
 		}
+		file << "Sending Link to:" << neighbors[i].dest << endl;
+		string s = to_string(nodeNum);
+		string linkmsg = "%" + s;
+		int fd;
+		int fds = 8000 + nodeNum;
+		if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+				char const *p = "ERROR creating socket";
+				error(p);
+			}
+		struct sockaddr_in myaddr;
+		memset((char *) &myaddr, 0, sizeof(myaddr));
+				myaddr.sin_family = AF_INET;
+				myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+				myaddr.sin_port = htons(fds);
+
+				if (bind(fd, (struct sockaddr *) &myaddr, sizeof(myaddr)) < 0) {
+					char const *p = "ERROR binding socket";
+					error(p);
+				}
+		sendUDP(fd, linkport, TCPIP, linkmsg);
+		int recvlen;
+		struct sockaddr_in remaddr;
+		socklen_t addrlen = sizeof(remaddr);
+		char buf[9999];
+		memset(&buf, 0, sizeof(buf));
+			//receive file size
+		recvlen = recvfrom(fd, buf, 9999, 0, (struct sockaddr *) &remaddr, &addrlen);
+				//These are storing the information for sending back to the "client"
+		receivedFromAddr2 = remaddr;
+		receivedFromFD2 = fd;
+		string str;
+		buf[recvlen] = 0;
+		str = buf;
+		file << "Linked with: " << neighbors[i].dest << endl;
+		close(fd);
 	}
 }
 
@@ -218,9 +248,11 @@ int Router::createUDPSocket(int port) {
 }
 
 //Send to a UDP connection over a fd
-void Router::sendUDP(int port, string destIp, string message) {
+void Router::sendUDP(int fd, int port, string destIp, string message) {
 	struct sockaddr_in servaddr;
 	char msg[9999];
+	
+	
 
 	//Writing a message to buffer
 	memset(&msg, 0, sizeof(msg));
@@ -233,15 +265,17 @@ void Router::sendUDP(int port, string destIp, string message) {
 
 	//Copy the destIP to the servaddr stuct
 	inet_pton(AF_INET, destIp.c_str(), &(servaddr.sin_addr));
-
+	
+	
 	//Send a message
-	if (sendto(UDPfd, msg, strlen(msg), 0, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0) {
+	if (sendto(fd, msg, strlen(msg), 0, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0) {
 		char const *p = "ERROR sending message";
 		error(p);
 	}
 
 	file << "Message sent!" << endl;
 }
+
 
 //Start receiving UDP messages, complete with ACK handling
 int receivedFromFD;
@@ -288,8 +322,7 @@ void Router::receiveUDP(int fd, int port) {
 		}
 		if (str.at(0) == '%') {
 			//This is where the router will send information to others. Will need to call some function to construct a msg
-			//sendBack(receivedFromFD, receivedFromAddr, "Link Success!");
-			file << "Linked with " << str.substr(1, str.length()-1)<< endl;
+			sendBack(receivedFromFD, receivedFromAddr, "AWKLINK");
 		}
 	}
 }

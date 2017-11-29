@@ -23,6 +23,7 @@ public:
 	int UDPPort;
 	int UDPfd;
 	int links;
+	bool linkawk;
 	string filename;
 	ofstream file;
 	vector<Link> neighbors;
@@ -36,7 +37,7 @@ public:
 	string receiveTCP(int fd);
 	vector<Link> messageToLinks(string message);
 	int createUDPSocket(int port);
-	void sendUDP(int fd, string destIp, string message);
+	void sendUDP(int fd, int port, string destIp, string message);
 	void receiveUDP(int fd, int port);
 	void linkRequest();
 
