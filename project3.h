@@ -1,3 +1,7 @@
+// Chris Marques
+// Ryan Cox
+// Nikolay Radaev
+
 #ifndef project3
 #define project3
 #include <vector>
