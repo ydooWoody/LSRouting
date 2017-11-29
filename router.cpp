@@ -25,8 +25,7 @@ Router::Router(int id) {
 int Router::run(int port) {
 	file << "Router starting up!" << endl;
 	UDPPort = port;
-	UDPfd = createUDPSocket(UDPPort);
-	createTCPSocket(TCPIP, to_string(TCPPort));
+	createUDPSocket(UDPPort);
 	return 1;
 }
 
@@ -100,6 +99,7 @@ string Router::receiveTCP(int fd) {
 
 //Create a manager side socket for connecting to routers.
 int Router::createTCPSocket(string destIp, string destPort) {
+	cout << destIp << endl;
 	file << "\n-----TCP STARTUP-----" << endl;
 	file << "Trying to create TCP Socket" << endl;
 
@@ -179,11 +179,11 @@ void Router::linkRequest(){
 		if(neighbors[i].src == nodeNum){
 			int linkport = neighbors[i].dest + 6000;
 			cout << linkport << " " << nodeNum << endl;
-			//sendUDP(UDPfd, TCPIP, "LINK");
+			sendUDP(UDPfd, TCPIP, "LINK");
 		}else{
 			int linkport = neighbors[i].src + 6000;
 			cout << linkport << " " << nodeNum << endl;
-			//sendUDP(UDPfd, TCPIP, "LINK");
+			sendUDP(UDPfd, TCPIP, "LINK");
 		}
 	}
 }
@@ -205,8 +205,9 @@ int Router::createUDPSocket(int port) {
 		char const *p = "ERROR creating socket";
 		error(p);
 	}
+	UDPfd = fd;
 	thread up (&Router::receiveUDP,this, fd, port);
-	//Get the server IP (this was a lot harder than you would think... used beej's guide on gethostbyname)
+	sleep(1);
 	createTCPSocket(TCPIP, to_string(TCPPort));
 	up.join();
 	return (fd);
