@@ -179,11 +179,11 @@ void Router::linkRequest(){
 		if(neighbors[i].src == nodeNum){
 			int linkport = neighbors[i].dest + 6000;
 			cout << linkport << " " << nodeNum << endl;
-			sendUDP(UDPfd, TCPIP, "LINK");
+			//sendUDP(UDPfd, TCPIP, "LINK");
 		}else{
 			int linkport = neighbors[i].src + 6000;
 			cout << linkport << " " << nodeNum << endl;
-			sendUDP(UDPfd, TCPIP, "LINK");
+			//sendUDP(UDPfd, TCPIP, "LINK");
 		}
 	}
 }
@@ -207,8 +207,8 @@ int Router::createUDPSocket(int port) {
 	}
 	thread up (&Router::receiveUDP,this, fd, port);
 	//Get the server IP (this was a lot harder than you would think... used beej's guide on gethostbyname)
-	cout << "Hello!?!?" << endl;
-	
+	createTCPSocket(TCPIP, to_string(TCPPort));
+	up.join();
 	return (fd);
 }
 
@@ -255,7 +255,6 @@ void Router::receiveUDP(int fd, int port) {
 		gethostname(hostname, sizeof hostname);
 		he = gethostbyname(hostname);
 		addr_list = (struct in_addr **) he->h_addr_list;
-		cout << fd << " " << port << endl;
 		file << "UDP socket created: <" << inet_ntoa(*addr_list[0]) << ", " << port << ">" << endl;
 
 		memset((char *) &myaddr, 0, sizeof(myaddr));
@@ -299,4 +298,5 @@ void Router::receiveUDP(int fd, int port) {
 			cout << "Sent an ACK for the message!" << endl;
 		}
 	}
+	cout << "Ummm what?!" << endl;
 }
