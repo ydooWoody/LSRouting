@@ -43,6 +43,7 @@ public:
 	void linkRequest();
 	void broadcast();
 	void reBroadcast(string str);
+	void reBroadcast2(int sender, string msg);
 
 };
 
