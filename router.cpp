@@ -161,6 +161,9 @@ int Router::createTCPSocket(string destIp, string destPort) {
 		} else if (message.at(0) == '#') {
 			struct sockaddr_in sin;
 			routers.push_back(nodeNum);
+			for(size_t i = 0; i < neighbors.size(); i++){
+				forwardTable.push_back(neighbors[i]);
+			}
 			file << "Received broadcast." << endl;
 			//...THIS SHOULD BE A CALL TO SEND TO ANOTHER ROUTER OVER UDP OR THE MANAGER OVER TCP
 			broadcast();
@@ -233,7 +236,7 @@ void Router::broadcast() {
 			}
 			file << "Sending Broadcast to:" << neighbors[i].dest << endl;
 			string s = to_string(nodeNum);
-			string linkmsg = "+" + s + "?";
+			string linkmsg = "+" + s + "!" + s + "?";
 			for (size_t j = 0; j < neighbors.size(); j++){
 				string src = to_string(neighbors[i].src);
 				string dest = to_string(neighbors[i].dest);
@@ -271,7 +274,7 @@ void Router::broadcast() {
 			string str;
 			buf[recvlen] = 0;
 			str = buf;
-			file << "Awk broadcast from: " << neighbors[i].dest << endl;
+			file << "Ack broadcast from: " << neighbors[i].dest << endl;
 			close(fd);
 		}
 	
@@ -279,7 +282,111 @@ void Router::broadcast() {
 }
 
 void Router::reBroadcast(string str){
+	vector<Link> temp;
+	int sender;
+	str = str.substr(1,str.length());
+	replace(str.begin(), str.end(), '!', ' ');
+	vector<string> links;
+	stringstream ss(str);
+	string tmp;
+	while (ss >> tmp) {
+		links.push_back(tmp);
+	}
+	sender = stoi(links[0]);
+	string node = to_string(nodeNum);
+	string resend = "+" + node + "!" + links[1];
+	str = links[1];
+	replace(str.begin(), str.end(), '?', ' ');
+	vector<string> others;
+	stringstream sothers(str);
+	string tmpothers;
+	while (sothers >> tmpothers){
+		others.push_back(tmpothers);
+	}
+	int owner = stoi(others[0]);
+	if(find(routers.begin(), routers.end(), owner) != routers.end()){
+		;
+	} else {
+		routers.push_back(owner);
+		str = others[1];
+		replace(str.begin(), str.end(), ':', ' ');
+		vector<string> links2;
+		stringstream ss2(str);
+		string tmp2;
+		while (ss2 >> tmp2) {
+			links2.push_back(tmp2);
+		}
+		
 	
+		for (size_t i = 0; i < links2.size(); i++) {
+			replace(links2[i].begin(), links2[i].end(), ',', ' ');
+			vector<string> vals;
+			stringstream ss1(links2[i]);
+			string temp1;
+			while (ss1 >> temp1) {
+				vals.push_back(temp1);
+			}
+			temp.push_back(Link(atoi(vals[0].c_str()), atoi(vals[1].c_str()), atoi(vals[2].c_str())));
+		}
+		for(size_t j = 0; j < temp.size(); j++){
+			for(size_t h = 0; h < forwardTable.size(); h++){
+				if((forwardTable[h].src == temp[j].src) && (forwardTable[h].dest == temp[j].dest)){
+					;
+				} else {
+					forwardTable.push_back(temp[j]);
+				}
+			}
+		}
+		cout << nodeNum << " " << resend << endl;
+		reBroadcast2(sender, resend);
+	}
+	
+}
+
+void Router::reBroadcast2(int sender, string msg) {
+	for(size_t i = 0; i < neighbors.size(); i++){
+		if((neighbors[i].src != sender) || (neighbors[i].dest != sender)){
+			int linkport;
+			if(neighbors[i].src == nodeNum){
+				linkport = neighbors[i].dest + 6000;
+			}else{
+				linkport = neighbors[i].src + 6000;	
+			}
+			int fd;
+			int fds = 9000 + nodeNum;
+			if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+					char const *p = "ERROR creating socket";
+					error(p);
+				}
+			struct sockaddr_in myaddr;
+			memset((char *) &myaddr, 0, sizeof(myaddr));
+					myaddr.sin_family = AF_INET;
+					myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+					myaddr.sin_port = htons(fds);
+
+					if (bind(fd, (struct sockaddr *) &myaddr, sizeof(myaddr)) < 0) {
+						char const *p = "ERROR binding socket";
+						error(p);
+					}
+			sendUDP(fd, linkport, TCPIP, msg);
+			int recvlen;
+			struct sockaddr_in remaddr;
+			socklen_t addrlen = sizeof(remaddr);
+			char buf[9999];
+			memset(&buf, 0, sizeof(buf));
+				//receive file size
+			recvlen = recvfrom(fd, buf, 9999, 0, (struct sockaddr *) &remaddr, &addrlen);
+					//These are storing the information for sending back to the "client"
+			receivedFromAddr2 = remaddr;
+			receivedFromFD2 = fd;
+			string str;
+			buf[recvlen] = 0;
+			str = buf;
+			file << "Ack broadcast from: " << neighbors[i].dest << endl;
+			close(fd);
+		}
+	}
+
 	
 	
 }

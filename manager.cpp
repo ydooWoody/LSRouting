@@ -47,7 +47,7 @@ void parseFile(string filename) {
 		cout << "Error opening the input file" << '\n';
 		exit(1);
 	}
-
+	cout << "Parsing File..." << endl;
 	file << "Parsing a file" << '\n';
 
 	string line = "";
@@ -280,6 +280,7 @@ void buildRouter(int tid) {
 void runManager(int num_threads) {
 	bool linksSent = false, tablesDone = false, packetsSent = false;
 	int waitingOn = num_threads, waitingOnFWD = num_threads, waitingOnBroad = num_threads;
+	cout << "Creating Routers..." << endl;
 
 	for (int i = 0; i < num_threads; i++) {
 		file << "\n-----ROUTER " << i << " SOCKET CREATION-----\n";
@@ -292,6 +293,7 @@ void runManager(int num_threads) {
 	socklen_t addr_size;
 	addr_size = sizeof their_addr;
 	//Send and receive link information
+	cout << "Linking TCP To Routers..." << endl;
 	while (!linksSent) {
 		//Accept initial connections
 		accepted = acceptAny(fds, num_threads, (struct sockaddr *) &their_addr, &addr_size);
@@ -321,6 +323,7 @@ void runManager(int num_threads) {
 		}
 	}
 	file << "-----STARTUP COMPLETED-----\n";
+	cout << "Linking UDP Routers..." << endl;
 	while (!tablesDone) {
 		file << "Sending Start Messages" << endl;
 		for (size_t i = 0; i < ac_vector.size(); i++) {
@@ -336,6 +339,7 @@ void runManager(int num_threads) {
 		}
 	}
 	file << "-----LINK ESTABLISHMENT COMPLETED-----\n";
+	cout << "Broadcating LSPs..." << endl;
 	while (!packetsSent) {
 		file << "Sending Broadcast Messages" << endl;
 		for (size_t i = 0; i < ac_vector.size(); i++) {
