@@ -310,7 +310,7 @@ void runManager(int num_threads) {
 			file << "Accepted a connection on port: " << local_port << endl;
 			sendTCP(accepted, getRouterNeighbors(local_port - 7000));
 			string newMessage = receiveTCP(accepted);
-			if (newMessage == "ACK") {
+			if (newMessage == "Ready!") {
 				waitingOn--;
 				if (waitingOn <= 0) {
 					linksSent = true;
@@ -323,7 +323,7 @@ void runManager(int num_threads) {
 	file << "-----STARTUP COMPLETED-----\n";
 	while (!tablesDone) {
 		file << "Sending Start Messages" << endl;
-		for (int i = 0; i < ac_vector.size(); i++) {
+		for (size_t i = 0; i < ac_vector.size(); i++) {
 			sleep(1);
 			sendTCP(ac_vector[i], "$START");
 			if (receiveTCP(ac_vector[i]) == "DONE") {
@@ -335,10 +335,10 @@ void runManager(int num_threads) {
 			}
 		}
 	}
-	file << "-----FORWARDING TABLES COMPLETED-----\n";
+	file << "-----LINK ESTABLISHMENT COMPLETED-----\n";
 	while (!packetsSent) {
 		file << "Sending Packets to Routers" << endl;
-		for (int i = 0; i < ac_vector.size(); i++) {
+		for (size_t i = 0; i < ac_vector.size(); i++) {
 			sleep(1);
 			sendTCP(ac_vector[i], "#PacketMessage");
 			if (receiveTCP(ac_vector[i]) == "RECV") {

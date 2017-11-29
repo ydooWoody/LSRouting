@@ -21,9 +21,11 @@ public:
 	string TCPIP;
 	int TCPPort;
 	int UDPPort;
+	int UDPfd;
 	string filename;
 	ofstream file;
 	vector<Link> neighbors;
+	vector<Link> forwardTable;
 	Router(int id);
 	int run(int port);
 	void setIP(string ip);
@@ -34,6 +36,8 @@ public:
 	vector<Link> messageToLinks(string message);
 	int createUDPSocket(int port);
 	void sendUDP(int fd, string destIp, string message);
+	void receiveUDP(int fd, int port);
+	void linkRequest();
 
 };
 

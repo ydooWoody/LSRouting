@@ -1,4 +1,5 @@
 #include <iostream>
+#include <thread>
 #include <string>
 #include <sstream>
 #include <cstring>
@@ -24,7 +25,7 @@ Router::Router(int id) {
 int Router::run(int port) {
 	file << "Router starting up!" << endl;
 	UDPPort = port;
-	createUDPSocket(UDPPort);
+	UDPfd = createUDPSocket(UDPPort);
 	createTCPSocket(TCPIP, to_string(TCPPort));
 	return 1;
 }
@@ -146,14 +147,15 @@ int Router::createTCPSocket(string destIp, string destPort) {
 			file << "This router is node: " << nodeNum << endl;
 			struct sockaddr_in sin;
 			file << "Sending ACK back to manager." << endl;
-			sendBack(fd, sin, "ACK");
+			sendBack(fd, sin, "Ready!");
 			file << "ACK sent to manager." << endl;
 			file << "\nAwaiting START signal...\n" << endl;
 		} else if (message.at(0) == '$') {
 			struct sockaddr_in sin;
 			file << "Received start" << endl;
 			//... THIS IS WHERE A CALL TO START LS ROUTING BEGINS
-			file << "Finished my table." << endl;
+			linkRequest();
+			file << "Finished linking to neighbors." << endl;
 			sendBack(fd, sin, "DONE");
 			file << "\nAwaiting PACKET signal...\n" << endl;
 		} else if (message.at(0) == '#') {
@@ -171,6 +173,21 @@ int Router::createTCPSocket(string destIp, string destPort) {
 	return fd;
 }
 
+void Router::linkRequest(){
+	
+	for(size_t i = 0; i < neighbors.size(); i++){
+		if(neighbors[i].src == nodeNum){
+			int linkport = neighbors[i].dest + 6000;
+			cout << linkport << " " << nodeNum << endl;
+			sendUDP(UDPfd, TCPIP, "LINK");
+		}else{
+			int linkport = neighbors[i].src + 6000;
+			cout << linkport << " " << nodeNum << endl;
+			sendUDP(UDPfd, TCPIP, "LINK");
+		}
+	}
+}
+
 /**
  * These methods are for UDP connections.
  * There is one method for creating the socket for sending/receiving
@@ -183,31 +200,16 @@ int Router::createUDPSocket(int port) {
 	file << "\n-----UDP STARTUP-----" << endl;
 	file << "Trying to create UDP Socket" << endl;
 	int fd;
-	struct sockaddr_in myaddr;
 
 	if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		char const *p = "ERROR creating socket";
 		error(p);
 	}
+	thread up (&Router::receiveUDP,this, fd, port);
 	//Get the server IP (this was a lot harder than you would think... used beej's guide on gethostbyname)
-	char hostname[128];
-	struct hostent *he;
-	struct in_addr **addr_list;
-	gethostname(hostname, sizeof hostname);
-	he = gethostbyname(hostname);
-	addr_list = (struct in_addr **) he->h_addr_list;
-	file << "UDP socket created: <" << inet_ntoa(*addr_list[0]) << ", " << port << ">" << endl;
-
-	memset((char *) &myaddr, 0, sizeof(myaddr));
-	myaddr.sin_family = AF_INET;
-	myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	myaddr.sin_port = htons(port);
-
-	if (bind(fd, (struct sockaddr *) &myaddr, sizeof(myaddr)) < 0) {
-		char const *p = "ERROR binding socket";
-		error(p);
-	}
-	return fd;
+	cout << "Hello!?!?" << endl;
+	
+	return (fd);
 }
 
 //Send to a UDP connection over a fd
@@ -239,26 +241,23 @@ void Router::sendUDP(int fd, string destIp, string message) {
 //Start receiving UDP messages, complete with ACK handling
 int receivedFromFD;
 struct sockaddr_in receivedFromAddr;
-void receiveUDP(int port) {
-
+void Router::receiveUDP(int fd, int port) {
+	
+	char hostname[128];
 	struct sockaddr_in myaddr;
-	//This struct below needs to be mapped to a variable for communicating back.
-	struct sockaddr_in remaddr;
-	socklen_t addrlen = sizeof(remaddr);
-	int recvlen;
-	//Will also need to be stored for sending back
-	int fd;
-	char buf[9999];
+		//This struct below needs to be mapped to a variable for communicating back.
+		struct sockaddr_in remaddr;
+		socklen_t addrlen = sizeof(remaddr);
+		int recvlen;
+		char buf[9999];
+		struct hostent *he;
+		struct in_addr **addr_list;
+		gethostname(hostname, sizeof hostname);
+		he = gethostbyname(hostname);
+		addr_list = (struct in_addr **) he->h_addr_list;
+		cout << fd << " " << port << endl;
+		file << "UDP socket created: <" << inet_ntoa(*addr_list[0]) << ", " << port << ">" << endl;
 
-	//Check if a connection is already established
-	if (port != -1) {
-		//Create a UDP Socket
-		if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-			char const *p = "ERROR creating socket";
-			error(p);
-		}
-
-		//Bind to any IP address, default port
 		memset((char *) &myaddr, 0, sizeof(myaddr));
 		myaddr.sin_family = AF_INET;
 		myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -268,9 +267,7 @@ void receiveUDP(int port) {
 			char const *p = "ERROR binding socket";
 			error(p);
 		}
-	}
-
-	cout << "Waiting on socket: Port: " << port << endl;
+		file << "UDP Listening." << endl;	
 
 	while (true) {
 		recvlen = recvfrom(fd, buf, 9999, 0, (struct sockaddr *) &remaddr, &addrlen);
