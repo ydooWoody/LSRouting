@@ -1,3 +1,7 @@
+// Chris Marques
+// Ryan Cox
+// Nikolay Radaev
+
 #include <iostream>
 #include <string>
 #include <sstream>
