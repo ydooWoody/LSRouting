@@ -362,13 +362,14 @@ void Router::reBroadcast(string str, int current){
 		bool found=false;
 		for(size_t j = 0; j < temp.size(); j++){
 			for(size_t h = 0; h < forwardTable.size(); h++){
-				if((forwardTable[h].src == temp[j].src) && (forwardTable[h].dest == temp[j].dest) && (forwardTable[h].cost == temp[j].cost)){
+				if((forwardTable[h].src == temp[j].src) && (forwardTable[h].dest == temp[j].dest)){
 					found = true;
 				}
 			}
 			if (!found){
 			forwardTable.push_back(temp[j]);
 			}
+			//forwardTable.push_back(temp[j]);
 		}
 		reBroadcast2(sender, resend, current);
 	}
