@@ -18,6 +18,7 @@ public:
 class Router {
 public:
 	int nodeNum;
+	int total;
 	string TCPIP;
 	int TCPPort;
 	int UDPPort;
@@ -29,6 +30,7 @@ public:
 	vector<Link> neighbors;
 	vector<Link> forwardTable;
 	vector<int> routers;
+	vector<string> plain;
 	Router(int id);
 	int run(int port);
 	void setIP(string ip);
@@ -42,8 +44,8 @@ public:
 	void receiveUDP(int fd, int port);
 	void linkRequest();
 	void broadcast();
-	void reBroadcast(string str);
-	void reBroadcast2(int sender, string msg);
+	void reBroadcast(string str, int current);
+	void reBroadcast2(int sender, string msg, int current);
 
 };
 

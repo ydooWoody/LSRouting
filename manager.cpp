@@ -243,7 +243,8 @@ string receiveTCP(int fd) {
 }
 
 string getRouterNeighbors(int routerID) {
-	string ret = "*";
+	string nd = to_string(nodes);
+	string ret = "*" + nd + "*";
 	vector<Link> neighbors;
 	for (size_t i = 0; i < allLinks.size(); i++) {
 		if ((allLinks[i].src == routerID) || allLinks[i].dest == routerID) {
@@ -348,14 +349,14 @@ void runManager(int num_threads) {
 			if (receiveTCP(ac_vector[i]) == "READY") {
 				waitingOnBroad--;
 				if (waitingOnBroad == 0) {
-					sleep(10);
-					sendTCP(ac_vector[i], "!QUIT");
+					sendTCP(ac_vector[i], "!PRINT");
 					packetsSent = true;
 					break;
 				}
 			}
 		}
 	}
+	sleep(20);
 	while (!quitting) {
 			file << "Sending Broadcast Messages" << endl;
 			for (size_t i = 0; i < ac_vector.size(); i++) {
@@ -366,7 +367,8 @@ void runManager(int num_threads) {
 					}
 	}
 	file << "----BROADCAST SENDING COMPLETED-----\n";
-	exit(1);
+	
+	
 }
 
 //Create threads, num_threads passed via input file

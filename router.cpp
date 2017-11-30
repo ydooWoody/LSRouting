@@ -39,7 +39,19 @@ void Router::setPort(int port) {
 }
 vector<Link> Router::messageToLinks(string message) {
 	vector < Link > neighbors;
-	string trucMessage = message.substr(1, message.length() - 1);
+	
+	string nodes = message.substr(1, message.length() -1);
+	replace(nodes.begin(), nodes.end(), '*', ' ');
+	vector<string> nds;
+	stringstream ds(nodes);
+	string tms;
+	while (ds >> tms){
+		nds.push_back(tms);
+	}
+	total = stoi(nds[0]);
+	plain.push_back(nds[1]);
+	string trucMessage = nds[1];
+	
 	replace(trucMessage.begin(), trucMessage.end(), ':', ' ');
 	vector<string> links;
 	stringstream ss(trucMessage);
@@ -171,11 +183,19 @@ int Router::createTCPSocket(string destIp, string destPort) {
 			file << "Checking Forward Table." << endl;
 			
 			sendBack(fd, sin, "READY");
-		} else if(message.at(0) == '!'){
+			while(routers.size() < 10){
+				sleep(1);
+			}
+			cout << routers.size() << " " << nodeNum << endl;
+			for(size_t i = 0; i < routers.size(); i++){
+				file << "Router number: " << routers[i] << " --- "<< plain[i] << endl;
+			}
 			for(size_t i = 0; i < forwardTable.size(); i++){
 				file << "src: " << forwardTable[i].src << "  dest: " << forwardTable[i].dest << "  cost: " << forwardTable[i].cost << endl;
 			}
+		} else if(message.at(0) == '!'){
 			sleep(5);
+			
 		} else if(message.at(0) == '^'){
 			exit(1);
 		} else {
@@ -247,9 +267,9 @@ void Router::broadcast() {
 			string s = to_string(nodeNum);
 			string linkmsg = "+" + s + "!" + s + "?";
 			for (size_t j = 0; j < neighbors.size(); j++){
-				string src = to_string(neighbors[i].src);
-				string dest = to_string(neighbors[i].dest);
-				string cost = to_string(neighbors[i].cost);
+				string src = to_string(neighbors[j].src);
+				string dest = to_string(neighbors[j].dest);
+				string cost = to_string(neighbors[j].cost);
 				linkmsg += src + "," + dest + "," + cost + ":";
 			}
 			linkmsg = linkmsg.substr(0, linkmsg.length()-1);
@@ -290,7 +310,7 @@ void Router::broadcast() {
 	
 }
 
-void Router::reBroadcast(string str){
+void Router::reBroadcast(string str, int current){
 	vector<Link> temp;
 	int sender;
 	str = str.substr(1,str.length());
@@ -316,7 +336,9 @@ void Router::reBroadcast(string str){
 	if(find(routers.begin(), routers.end(), owner) != routers.end()){
 		;
 	} else {
+		cout << nodeNum << " " << others[1] << " " << owner << endl;
 		routers.push_back(owner);
+		plain.push_back(others[1]);
 		str = others[1];
 		replace(str.begin(), str.end(), ':', ' ');
 		vector<string> links2;
@@ -348,14 +370,14 @@ void Router::reBroadcast(string str){
 			forwardTable.push_back(temp[j]);
 			}
 		}
-		reBroadcast2(sender, resend);
+		reBroadcast2(sender, resend, current);
 	}
 	
 }
 
 int receivedFromFD4;
 struct sockaddr_in receivedFromAddr4;
-void Router::reBroadcast2(int sender, string msg) {
+void Router::reBroadcast2(int sender, string msg, int current) {
 	for(size_t i = 0; i < neighbors.size(); i++){
 		if((neighbors[i].src != sender) || (neighbors[i].dest != sender)){
 			int linkport;
@@ -365,7 +387,7 @@ void Router::reBroadcast2(int sender, string msg) {
 				linkport = neighbors[i].src + 6000;	
 			}
 			int fd;
-			int fds = 9000 + nodeNum;
+			int fds = 9000 + current;
 			if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 					char const *p = "ERROR creating socket";
 					error(p);
@@ -375,10 +397,9 @@ void Router::reBroadcast2(int sender, string msg) {
 					myaddr.sin_family = AF_INET;
 					myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 					myaddr.sin_port = htons(fds);
-
-					if (bind(fd, (struct sockaddr *) &myaddr, sizeof(myaddr)) < 0) {
-						char const *p = "ERROR binding socket";
-						error(p);
+					while (bind(fd, (struct sockaddr *) &myaddr, sizeof(myaddr)) < 0) {
+						fds++;
+						myaddr.sin_port = htons(fds);
 					}
 			sendUDP(fd, linkport, TCPIP, msg);
 			int recvlen;
@@ -464,6 +485,7 @@ void Router::receiveUDP(int fd, int port) {
 	
 	char hostname[128];
 	struct sockaddr_in myaddr;
+	int current = 0;
 		//This struct below needs to be mapped to a variable for communicating back.
 		struct sockaddr_in remaddr;
 		socklen_t addrlen = sizeof(remaddr);
@@ -493,6 +515,7 @@ void Router::receiveUDP(int fd, int port) {
 		receivedFromAddr = remaddr;
 		receivedFromFD = fd;
 		string str;
+		
 
 		if (recvlen > 0) {
 			//Received a message, either send an ACK or send a message depending on who is recieving.
@@ -507,7 +530,10 @@ void Router::receiveUDP(int fd, int port) {
 		if (str.at(0) == '+') {
 			//This is where the router will send information to others. Will need to call some function to construct a msg
 			sendBack(receivedFromFD, receivedFromAddr, "AWKBROADCAST");
-			thread up (&Router::reBroadcast,this, str);
+			current += 5;
+			sleep(1);
+			thread up (&Router::reBroadcast,this, str, current);
+			
 			up.detach();
 		}
 	}
