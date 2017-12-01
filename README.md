@@ -1,4 +1,5 @@
 Project 3: Simulating a Link State Routing Protocol
+
 Created by:
 Chris Marques
 Ryan Cox
@@ -33,6 +34,7 @@ Router.cpp-
 
 
 Status and Problems:
+
 Everything at this point is working 100%. The manager creates routers and sends them links. When a router receives the links they request the links from their neighbors and broadcasts this info to all other neighbors. This builds a forwarding table and later a routing table to determine next hop for any given packet. The manager sends packets to a router and the router uses this table to send packets to the next hop. Routers are all receiving the packets that are sent to them via any others. The process for the example input.txt works in around 10 seconds.
 
 
@@ -40,6 +42,7 @@ The only problem we have is the occasional badSocket error or segfault on startu
 
 
 Log notes:
+
 * Lines beginning with “-----” are headers for a sector and don't include times, this is because the call right after is near the exact same time frame and the structure is more organized without times on them.
 * In the log for manager, thread creating beats the output at the beginning, the output is incorrect sequentially but the actual timing is correct.
 * In manager.log, 1 word messages are typically ACKs with specific names so that we understood where each was originating.
