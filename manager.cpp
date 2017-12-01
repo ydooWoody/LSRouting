@@ -1,7 +1,3 @@
-// Chris Marques
-// Ryan Cox
-// Nikolay Radaev
-
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -38,6 +34,14 @@ void error(char const *msg) {
 	exit(1);
 }
 
+string getTime() {
+	time_t now = time(NULL);
+	tm * ptm = localtime(&now);
+	char buffer[32];
+	strftime(buffer, 32, "%a, %d.%m.%Y %H:%M:%S", ptm);
+	return buffer;
+}
+
 Link::Link(int src, int dest, int cost) {
 	Link::src = src;
 	Link::dest = dest;
@@ -51,16 +55,17 @@ void parseFile(string filename) {
 		cout << "Error opening the input file" << '\n';
 		exit(1);
 	}
-
-	file << "Parsing a file" << '\n';
+	cout << "Parsing File..." << endl;
+	file << getTime() << ": " << "Parsing a file" << '\n';
 
 	string line = "";
-
+	file << "\n-----PARSING FINISHED-----\n" << endl;
+	file << "\n-----LINKS PARSED-----\n" << endl;
 	int i = 0;
 	while (getline(inputFile, line)) {
 		if (i == 0) {
 			nodes = stoi(line);
-			file << "\n-----NODES: " << nodes << "-----\n";
+			file << getTime() << ": " << "\nNODES: " << nodes << endl;
 			getline(inputFile, line);
 		}
 		if (line.at(0) != '-') {
@@ -86,7 +91,7 @@ void parseFile(string filename) {
 
 			int i = -1; //counter
 
-			file << "-----PACKETS-----" << "\n";
+			file << "\n-----PACKETS PARSED-----\n" << endl;
 			while (getline(inputFile, line)) {
 
 				if (stoi(line) != -1) {
@@ -107,7 +112,7 @@ void parseFile(string filename) {
 				}
 
 			}
-			file << "-----------------\n";
+			file << getTime() << ": " << "-----------------\n";
 		}
 	}
 }
@@ -196,7 +201,7 @@ int createTCPSocket(string port) {
 
 	//Print out important info
 	thisIP = inet_ntoa(*addr_list[0]);
-	file << "Listening on: <" << thisIP << ", " << port << ">" << "\n\n";
+	file << getTime() << ": " << "Listening on: <" << thisIP << ", " << port << ">" << "\n\n";
 	return sockfd;
 //	//Accept a connection to the TCP socket
 //	struct sockaddr_storage their_addr;
@@ -228,7 +233,7 @@ void sendTCP(int fd, string message) {
 
 	//Send message
 	send(fd, (char*) &buffer, strlen(buffer), 0);
-	file << "Message sent." << endl;
+	file << getTime() << ": " << "Message sent." << endl;
 }
 
 //Try receiving from this TCP connection.
@@ -236,18 +241,19 @@ string receiveTCP(int fd) {
 	char buffer[9999];
 	memset(&buffer, 0, sizeof(buffer));
 	//receive file size
-	file << "Waiting for message." << endl;
+	file << getTime() << ": " << "Waiting for message." << endl;
 	while (strlen(buffer) == 0) {
 		recv(fd, (char*) &buffer, sizeof(buffer), 0);
 	}
-	file << "Received a message." << endl;
+	file << getTime() << ": " << "Received a message." << endl;
 	string str(buffer);
-	file << str << endl;
+	file << getTime() << ": " << str << endl;
 	return str;
 }
 
 string getRouterNeighbors(int routerID) {
-	string ret = "*";
+	string nd = to_string(nodes);
+	string ret = "*" + nd + "*";
 	vector<Link> neighbors;
 	for (size_t i = 0; i < allLinks.size(); i++) {
 		if ((allLinks[i].src == routerID) || allLinks[i].dest == routerID) {
@@ -261,33 +267,34 @@ string getRouterNeighbors(int routerID) {
 		ret = ret + to_string(neighbors[i].src) + "," + to_string(neighbors[i].dest) + "," + to_string(neighbors[i].cost) + ":";
 	}
 	ret = ret.substr(0, ret.length() - 1);
-	file << "MESSAGE TO SEND TO ROUTER:" << ret << "" << endl;
+	file << getTime() << ": " << "MESSAGE TO SEND TO ROUTER:" << ret << "" << endl;
 	return ret;
 }
 
 //This will call a router task; ie. building a router and running router class tashs
 void buildRouter(int tid) {
 	//Create the router object
-	file << "Router" << tid << " thread created and starting!" << '\n';
+	file << getTime() << ": " << "Router" << tid << " thread created and starting!" << '\n';
 	Router router(tid);
 	//Create the socket for the manager talking to a router
 	string routerPort = "" + (thisPort + tid);
 	router.setIP(thisIP);
 	router.setPort(thisPort + tid);
 	router.run(thisPort + tid - 1000);
-	file << "Router" << tid << " created and given TCP info." << '\n';
+	file << getTime() << ": " << "Router" << tid << " created and given TCP info." << '\n';
 	//Once it reaches this point, the thread will quit.
-	file << "Router" << tid << " quitting!" << '\n';
+	file << getTime() << ": " << "Router" << tid << " quitting!" << '\n';
 }
 
 //THis is for running manager based tasks (ie. Sending and receiving packets)
 void runManager(int num_threads) {
-	bool linksSent = false, tablesDone = false, packetsSent = false;
-	int waitingOn = num_threads, waitingOnFWD = num_threads, waitingOnPack = packets.size();
+	bool linksSent = false, tablesDone = false, broadcast = false, table = false, sent = false, quitting = false;
+	int waitingOn = num_threads, waitingOnFWD = num_threads, waitingOnBroad = num_threads, waitingOnTable = num_threads, waitingOnSent = packets.size(), waitingOnQuit = num_threads;
+	cout << "Creating Routers..." << endl;
 
 	for (int i = 0; i < num_threads; i++) {
 		file << "\n-----ROUTER " << i << " SOCKET CREATION-----\n";
-		file << "Creating socket on port: " << (thisPort + i) << '\n';
+		file << getTime() << ": " << "Creating socket on port: " << (thisPort + i) << '\n';
 		fd_vector.push_back(createTCPSocket(to_string(thisPort + i)));
 	}
 	int accepted;
@@ -296,6 +303,7 @@ void runManager(int num_threads) {
 	socklen_t addr_size;
 	addr_size = sizeof their_addr;
 	//Send and receive link information
+	cout << "Linking TCP To Routers..." << endl;
 	while (!linksSent) {
 		//Accept initial connections
 		accepted = acceptAny(fds, num_threads, (struct sockaddr *) &their_addr, &addr_size);
@@ -311,10 +319,10 @@ void runManager(int num_threads) {
 				local_port = ntohs(sin.sin_port);
 			}
 			file << "\n-----ROUTER " << to_string(local_port - 7000) << " TCP LINK MESSAGING-----\n";
-			file << "Accepted a connection on port: " << local_port << endl;
+			file << getTime() << ": " << "Accepted a connection on port: " << local_port << endl;
 			sendTCP(accepted, getRouterNeighbors(local_port - 7000));
 			string newMessage = receiveTCP(accepted);
-			if (newMessage == "ACK") {
+			if (newMessage == "Ready!") {
 				waitingOn--;
 				if (waitingOn <= 0) {
 					linksSent = true;
@@ -324,10 +332,11 @@ void runManager(int num_threads) {
 			}
 		}
 	}
-	file << "-----STARTUP COMPLETED-----\n";
+	file << "\n-----SETUP COMPLETED, STARTING LINK ESTABLISHMENT-----\n";
+	cout << "Linking UDP Routers..." << endl;
 	while (!tablesDone) {
-		file << "Sending Start Messages" << endl;
-		for (int i = 0; i < ac_vector.size(); i++) {
+		file << getTime() << ": " << "Sending Start Messages" << endl;
+		for (size_t i = 0; i < ac_vector.size(); i++) {
 			sleep(1);
 			sendTCP(ac_vector[i], "$START");
 			if (receiveTCP(ac_vector[i]) == "DONE") {
@@ -339,24 +348,74 @@ void runManager(int num_threads) {
 			}
 		}
 	}
-	file << "-----FORWARDING TABLES COMPLETED-----\n";
-	while (!packetsSent) {
-		file << "Sending Packets to Routers" << endl;
-		for (int i = 0; i < ac_vector.size(); i++) {
+	file << "\n-----LINK ESTABLISHMENT COMPLETED, STARTING BROADCAST-----\n";
+	cout << "Broadcasting LSPs..." << endl;
+	while (!broadcast) {
+		file << getTime() << ": " << "Sending Broadcast Messages" << endl;
+		for (size_t i = 0; i < ac_vector.size(); i++) {
 			sleep(1);
-			sendTCP(ac_vector[i], "#PacketMessage");
-			if (receiveTCP(ac_vector[i]) == "RECV") {
-				waitingOnPack--;
-				if (waitingOnPack == 0) {
-					sendTCP(ac_vector[i], "!QUIT");
-					packetsSent = true;
+			sendTCP(ac_vector[i], "#BROADCAST");
+			if (receiveTCP(ac_vector[i]) == "READY") {
+				waitingOnBroad--;
+				if (waitingOnBroad == 0) {
+					broadcast = true;
 					break;
 				}
 			}
 		}
 	}
-	file << "-----PACKET SENDING COMPLETED-----\n";
-	exit(1);
+	//sleep(20);
+	cout << "Creating Routing Tables..." << endl;
+	while (!table) {
+		file << "\n-----BROADCASTING COMPLETED, STARTING ROUTING TABLE CREATION-----\n" << endl;
+		for (size_t i = 0; i < ac_vector.size(); i++) {
+			sleep(1);
+			sendTCP(ac_vector[i], "!Table");
+			if (receiveTCP(ac_vector[i]) == "RTDone") {
+				waitingOnTable--;
+				if (waitingOnTable == 0) {
+					table = true;
+					break;
+				}
+			}
+		}
+	}
+	sleep(5);
+	cout << "Sending Packets..." << endl;
+	while (!sent) {
+		file << "\n-----ROUTING TABLES CREATED, SENDING PACKETS-----\n" << endl;
+		for (size_t i = 0; i < packets.size(); i++) {
+			sleep(2);
+			string mess = "~" + to_string(packets[i].dest);
+			sendTCP(ac_vector[packets[i].src], mess);
+			file << getTime() << ": " << "Sent Packet: " << i+1 << endl;
+			if (receiveTCP(ac_vector[packets[i].src]) == "PackSent") {
+				waitingOnSent--;
+				if (waitingOnSent == 0) {
+					sent = true;
+					break;
+				}
+			}
+		}
+	}
+	sleep(20);
+	cout << "Quitting..." << endl;
+	while (!quitting) {
+		file << "\n-----PACKETS HAVE BEEN SENT, SENDING QUITs TO ROUTERS-----\n" << endl;
+		for (size_t i = 0; i < ac_vector.size(); i++) {
+			sendTCP(ac_vector[i], "^quit");
+			if (receiveTCP(ac_vector[i]) == "QUITACK") {
+				waitingOnQuit--;
+				if (waitingOnQuit == 0) {
+					quitting = true;
+					break;
+				}
+			}
+		}
+	}
+	for (size_t i = 0; i < ac_vector.size(); i++) {
+		close(ac_vector[i]);
+	}
 }
 
 //Create threads, num_threads passed via input file
@@ -370,21 +429,23 @@ void createRouterThreads(int num_threads) {
 
 //Do manager related tasks (not sure about the placement here, but it should be correct because once the threads are created we want to do something with them)
 	runManager(num_threads);
+	file << "\n-----ROUTERS HAVE QUIT, QUITTING-----\n" << endl;
+	file << getTime() << ": " << "DONE";
 
 //Join finished threads
 	for (int i = 0; i < num_threads; ++i) {
 		t[i].join();
 	}
 
-	file << "Manager is aware that all threads have finished completely and can now exit. Doing that." << endl;
-
+	exit(0);
 }
 
 //Will parse command line arguments and start processes
 int main(int argc, const char * argv[]) {
 	file.open("Manager.log");
 	if (argc >= 2) {
-		file << "Opening the Filename: " << argv[1] << '\n';
+		file << "\n-----STARTING-----\n" << endl;
+		file << getTime() << ": " << "Opening the Filename: " << argv[1] << '\n';
 		parseFile(argv[1]);
 	}
 
@@ -397,7 +458,7 @@ int main(int argc, const char * argv[]) {
 // nodes is how it is named in header file, check for more data structure
 
 //Start the process, I dont think anything should be below this call
-	file << "Creating: " << numberOfThreads << " threads." << '\n';
+	file << "\n-----CREATING " << numberOfThreads << " THREADS-----\n" << endl;
 	createRouterThreads(numberOfThreads);
 
 	return 0;
