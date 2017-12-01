@@ -1,3 +1,6 @@
+/*Manager.cpp
+ * Created by Chris Marques, Ryan Cox, and Nikolay Radaev
+ */
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -203,23 +206,6 @@ int createTCPSocket(string port) {
 	thisIP = inet_ntoa(*addr_list[0]);
 	file << getTime() << ": " << "Listening on: <" << thisIP << ", " << port << ">" << "\n\n";
 	return sockfd;
-//	//Accept a connection to the TCP socket
-//	struct sockaddr_storage their_addr;
-//	socklen_t addr_size;
-//	addr_size = sizeof their_addr;
-//	new_fd = accept(sockfd, (struct sockaddr *) &their_addr, &addr_size);
-//
-//	//Avoid "address already in use" error because machine(?) still waiting to send ack and keeps getting sent into TIMEWAIT.
-//	int optval1 = 1;
-//	setsockopt(new_fd, SOL_SOCKET, SO_REUSEADDR, &optval1, sizeof optval1);
-//	if (new_fd < 0) {
-//		char const *p = "ERROR accepting connection to socket";
-//		error(p);
-//	} else {
-//		char hostbuffer[256];
-//		inet_ntop(their_addr.ss_family, &(((struct sockaddr_in *) &their_addr)->sin_addr), hostbuffer, INET_ADDRSTRLEN);
-//	}
-	//return new_fd;
 }
 
 //Send to a TCP connection
@@ -337,7 +323,7 @@ void runManager(int num_threads) {
 	while (!tablesDone) {
 		file << getTime() << ": " << "Sending Start Messages" << endl;
 		for (size_t i = 0; i < ac_vector.size(); i++) {
-			sleep(1);
+			//sleep(1);
 			sendTCP(ac_vector[i], "$START");
 			if (receiveTCP(ac_vector[i]) == "DONE") {
 				waitingOnFWD--;
@@ -353,7 +339,7 @@ void runManager(int num_threads) {
 	while (!broadcast) {
 		file << getTime() << ": " << "Sending Broadcast Messages" << endl;
 		for (size_t i = 0; i < ac_vector.size(); i++) {
-			sleep(1);
+			//sleep(1);
 			sendTCP(ac_vector[i], "#BROADCAST");
 			if (receiveTCP(ac_vector[i]) == "READY") {
 				waitingOnBroad--;
@@ -364,12 +350,11 @@ void runManager(int num_threads) {
 			}
 		}
 	}
-	//sleep(20);
 	cout << "Creating Routing Tables..." << endl;
 	while (!table) {
 		file << "\n-----BROADCASTING COMPLETED, STARTING ROUTING TABLE CREATION-----\n" << endl;
 		for (size_t i = 0; i < ac_vector.size(); i++) {
-			sleep(1);
+			//sleep(1);
 			sendTCP(ac_vector[i], "!Table");
 			if (receiveTCP(ac_vector[i]) == "RTDone") {
 				waitingOnTable--;
@@ -380,12 +365,12 @@ void runManager(int num_threads) {
 			}
 		}
 	}
-	sleep(5);
+	//sleep(5);
 	cout << "Sending Packets..." << endl;
 	while (!sent) {
 		file << "\n-----ROUTING TABLES CREATED, SENDING PACKETS-----\n" << endl;
 		for (size_t i = 0; i < packets.size(); i++) {
-			sleep(2);
+			sleep(1);
 			string mess = "~" + to_string(packets[i].dest);
 			sendTCP(ac_vector[packets[i].src], mess);
 			file << getTime() << ": " << "Sent Packet: " << i+1 << endl;
@@ -398,7 +383,7 @@ void runManager(int num_threads) {
 			}
 		}
 	}
-	sleep(20);
+	//sleep(5);
 	cout << "Quitting..." << endl;
 	while (!quitting) {
 		file << "\n-----PACKETS HAVE BEEN SENT, SENDING QUITs TO ROUTERS-----\n" << endl;

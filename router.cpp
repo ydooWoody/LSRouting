@@ -1,3 +1,6 @@
+/*Router.cpp
+ * Created by Chris Marques, Ryan Cox, and Nikolay Radaev
+ */
 #include <iostream>
 #include <thread>
 #include <string>
@@ -75,6 +78,7 @@ vector<Link> Router::messageToLinks(string message) {
 	return neighbors;
 }
 
+//Dijkstras algoritm and shortest hop building. Modified from the implementation of Dijkstra's from http://www.geeksforgeeks.org/dijkstras-shortest-path-algorithm-using-set-in-stl/
 Graph::Graph(int V) {
 	this->V = V;
 	adj = new list<pair<int, int> > [V];
@@ -85,54 +89,31 @@ void Graph::addEdge(int u, int v, int w) {
 	adj[v].push_back(make_pair(u, w));
 }
 
-// Prints shortest paths from src to all other vertices
 vector<int> Graph::shortestPath(int src) {
 	vector<int> nextHop;
-	//Initialize all hops to -1
+
 	int tempArray[500];
 	fill_n(tempArray, 500, -1);
-	// Create a set to store vertices that are being
-	// prerocessed
 	set<pair<int, int> > setds;
-
-	// Create a vector for distances and initialize all
-	// distances as infinite (INF)
 	vector<int> dist(V, INF);
 
-	// Insert source itself in Set and initialize its
-	// distance as 0.
 	setds.insert(make_pair(0, src));
 	dist[src] = 0;
-	/* Looping till all shortest distance are finalized
-	 then setds will become empty */
 	while (!setds.empty()) {
-		// The first vertex in Set is the minimum distance
-		// vertex, extract it from set.
 		pair<int, int> tmp = *(setds.begin());
 		setds.erase(setds.begin());
-
-		// vertex label is stored in second of pair (it
-		// has to be done this way to keep the vertices
-		// sorted distance (distance must be first item
-		// in pair)
 		int u = tmp.second;
 
-		// 'i' is used to get all adjacent vertices of a vertex
 		list<pair<int, int> >::iterator i;
 		for (i = adj[u].begin(); i != adj[u].end(); ++i) {
-			// Get vertex label and weight of current adjacent
-			// of u.
 			int v = (*i).first;
 			int weight = (*i).second;
 
-			//  If there is shorter path to v through u.
 			if (dist[v] > dist[u] + weight) {
-				//Set the hop for any dest to the current attempt
 				tempArray[v] = u;
 				if (dist[v] != INF)
 					setds.erase(setds.find(make_pair(dist[v], v)));
 
-				// Updating distance of v
 				dist[v] = dist[u] + weight;
 				setds.insert(make_pair(dist[v], v));
 			}
@@ -436,11 +417,13 @@ int Router::createTCPSocket(string destIp, string destPort) {
 			file << "\n-----QUITTING-----\n" << endl;
 			file << getTime() << ": " << "Received QUIT Signal." << endl;
 			sendBack(fd, sin, "QUITACK");
-			file << getTime() << ": " << "Exiting." << endl;
-			sleep(2);
+			file << getTime() << ": " << "Exiting.";
+			//This sleep is needed, timing; unsure
+			sleep(1);
+			close(fd);
 			exit(0);
 		} else {
-			close(fd);
+
 		}
 	}
 	return fd;
